@@ -6,8 +6,6 @@ using System.Collections;
 public class Grid : MonoBehaviour
 {
     [SerializeField] private float _slotChangeSpeed = 1f;
-    [SerializeField] private Vector2Int _gridSize = Vector2Int.one;
-    [SerializeField] private GameObject _slotPrefab;
 
     [SerializeField] private GridSlot[] _slots;
 
@@ -45,9 +43,8 @@ public class Grid : MonoBehaviour
 
     private void TryChangeSlots(int currentSelectedIndex, int slotIndex)
     {
-        //var selectedSlotPosition = _slots[currentSelectedIndex].transform.position;
-        //_slots[_currentSelectedIndex].transform.position = _slots[slotIndex].transform.position;
-        //_slots[slotIndex].transform.position = selectedSlotPosition;
+        if (!IsAdjacent(currentSelectedIndex, slotIndex)) return;
+
         StartCoroutine(AnimateSlotsChange(currentSelectedIndex, slotIndex));
 
         _slots[_currentSelectedIndex].SetIndex(slotIndex);
@@ -78,5 +75,13 @@ public class Grid : MonoBehaviour
 
         fromTransform.position = toInitialPosition;
         toTransform.position = fromInitialPosition;
+    }
+
+    private bool IsAdjacent(int index, int other)
+    {
+        Vector2 indexOnArray = new Vector2(index % 8, (index/8));
+        Vector2 otherOnArray = new Vector2(other % 8, (other/8));
+
+        return Mathf.Abs(1f - (indexOnArray - otherOnArray).magnitude) < 0.001f;
     }
 }

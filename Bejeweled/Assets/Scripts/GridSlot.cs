@@ -43,9 +43,4 @@ public class GridSlot : Selectable, IPointerClickHandler, IDragHandler, IDropHan
         Grid.CurrentEventSystem.SetSelectedGameObject(this.gameObject);
         _parentGrid.SlotSelected(Index);
     }
-
-    protected override void OnValidate()
-    {
-        this.GetComponent<Image>().color = Random.ColorHSV();
-    }
 }

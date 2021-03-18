@@ -325,7 +325,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7231780474515367231, guid: 33fbbc0a42c7e7e4ba8de6db0119a511, type: 3}
       propertyPath: m_RootOrder
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7231780474515367231, guid: 33fbbc0a42c7e7e4ba8de6db0119a511, type: 3}
       propertyPath: m_AnchorMax.x
@@ -3596,8 +3596,8 @@ RectTransform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
-  - {fileID: 1950117733}
   - {fileID: 19627259}
+  - {fileID: 1950117733}
   - {fileID: 378609233}
   - {fileID: 1373311131}
   - {fileID: 248347977}
@@ -3681,8 +3681,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _slotChangeSpeed: 10
-  _gridSize: {x: 8, y: 8}
-  _slotPrefab: {fileID: 7231780474515367230, guid: 33fbbc0a42c7e7e4ba8de6db0119a511, type: 3}
   _slots:
   - {fileID: 19627260}
   - {fileID: 1950117734}
@@ -7294,7 +7292,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7231780474515367231, guid: 33fbbc0a42c7e7e4ba8de6db0119a511, type: 3}
       propertyPath: m_RootOrder
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7231780474515367231, guid: 33fbbc0a42c7e7e4ba8de6db0119a511, type: 3}
       propertyPath: m_AnchorMax.x
