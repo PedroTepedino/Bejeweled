@@ -4,7 +4,7 @@ using UnityEngine.EventSystems;
 using System.Collections;
 using Random = UnityEngine.Random;
 
-public class GameManager : MonoBehaviour
+public class GridManager : MonoBehaviour
 {
     public const int WIDTH = 8;
     public const int HEIGHT = 8;
@@ -14,13 +14,13 @@ public class GameManager : MonoBehaviour
     [SerializeField] private float _slotChangeSpeed = 1f;
 
     [SerializeField] private GameObject _gemPrefab;
-    [SerializeField] private GemTypeScriptableObject[] _gemTypes; 
+    [SerializeField] private GemTypeSO[] _gemTypes; 
 
     [SerializeField] private GridSlot[] _slots;
 
     private Gem[] _gems;
 
-    private int _currentSelectedIndex = -1;
+    private Gem _currentGem = null;
 
     private readonly WaitForEndOfFrame _waitForEndOfFrame = new WaitForEndOfFrame();
     public static EventSystem CurrentEventSystem { get; private set; }
@@ -41,12 +41,13 @@ public class GameManager : MonoBehaviour
         for (int i = 0; i < _gems.Length; i++)
         {
             var newGem = Instantiate(_gemPrefab).GetComponent<Gem>();
-            newGem.SetGemType(_gemTypes[Random.Range(0, _gemTypes.Length)]);
+
+            var initialPostion = _slots[i].transform.position + (Vector3.up * _cellSize * 8f);
+            var gemType = _gemTypes[Random.Range(0, _gemTypes.Length)];            
+
+            newGem.Setup(this, initialPostion, gemType, _slots[i]);
 
             _gems[i] = newGem;
-
-            newGem.transform.position = _slots[i].transform.position + (Vector3.up * _cellSize * 8f);
-            newGem.GoToSlot(_slots[i]);
         }
     }
 
@@ -73,31 +74,28 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    public void SlotSelected(int slotIndex)
+    public void GemSelected(Gem nextGem)
     {
-        if (_currentSelectedIndex >= 0 && _currentSelectedIndex != slotIndex)
+        if (GemsCanBeChanged(_currentGem, nextGem))
         {
-            TryChangeSlots(_currentSelectedIndex, slotIndex);
-            _currentSelectedIndex = -1;
+            ChangeGemPlaces(_currentGem, nextGem);
+            _currentGem = null;
         }
         else
         {
-            _currentSelectedIndex = slotIndex;
+            _currentGem = nextGem;
         }
     }
 
-    private void TryChangeSlots(int currentSelectedIndex, int slotIndex)
+    private bool GemsCanBeChanged(Gem current, Gem other) => current != null && current != other && AreAdjacent(current.Index, other.Index);
+
+    private void ChangeGemPlaces(Gem current, Gem other)
     {
-        if (!IsAdjacent(currentSelectedIndex, slotIndex)) return;
+        var currentSlot = _slots[current.Index];
+        var otherSlot = _slots[other.Index];
 
-        StartCoroutine(AnimateSlotsChange(currentSelectedIndex, slotIndex));
-
-        _slots[_currentSelectedIndex].SetIndex(slotIndex);
-        _slots[slotIndex].SetIndex(currentSelectedIndex);
-
-        var selectedSlot = _slots[currentSelectedIndex];
-        _slots[currentSelectedIndex] = _slots[slotIndex];
-        _slots[slotIndex] = selectedSlot;
+        current.GoToSlot(otherSlot);
+        other.GoToSlot(currentSlot);
     }
 
     private IEnumerator AnimateSlotsChange(int from, int to)
@@ -122,7 +120,7 @@ public class GameManager : MonoBehaviour
         toTransform.position = fromInitialPosition;
     }
 
-    private bool IsAdjacent(int index, int other)
+    private bool AreAdjacent(int index, int other)
     {
         Vector2 indexOnArray = new Vector2(index % 8, (index/8));
         Vector2 otherOnArray = new Vector2(other % 8, (other/8));
