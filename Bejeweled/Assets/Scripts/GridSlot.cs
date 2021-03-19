@@ -2,20 +2,12 @@
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-[RequireComponent(typeof(RectTransform))]
-public class GridSlot : Selectable, IPointerClickHandler, IDragHandler, IDropHandler
+public class GridSlot : MonoBehaviour, IPointerClickHandler, IDragHandler, IDropHandler
 {
-    private RectTransform _transform;
-
-    private Grid _parentGrid;
+    private GameManager _parentGrid;
     public int Index { get; private set; }
 
-    private void Awake()
-    {
-        _transform = this.GetComponent<RectTransform>();
-    }
-
-    public void Setup(Grid grid, int index)
+    public void Setup(GameManager grid, int index)
     {
         _parentGrid = grid;
         SetIndex(index);
@@ -38,9 +30,7 @@ public class GridSlot : Selectable, IPointerClickHandler, IDragHandler, IDropHan
     }
 
     public void OnPointerClick(PointerEventData eventData)
-    {
-        Debug.Log("Pointer Click");
-        Grid.CurrentEventSystem.SetSelectedGameObject(this.gameObject);
+    { 
         _parentGrid.SlotSelected(Index);
     }
 }
