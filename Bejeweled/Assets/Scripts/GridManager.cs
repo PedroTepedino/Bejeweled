@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using System.Collections;
+using System.Collections.Generic;
 using Random = UnityEngine.Random;
 
 public class GridManager : MonoBehaviour
@@ -10,20 +11,18 @@ public class GridManager : MonoBehaviour
     public const int HEIGHT = 8;
 
     [SerializeField] private float _cellSize = 1f;
-    
-    [SerializeField] private float _slotChangeSpeed = 1f;
 
     [SerializeField] private GameObject _gemPrefab;
-    [SerializeField] private GemTypeSO[] _gemTypes; 
-
-    [SerializeField] private GridSlot[] _slots;
+    [SerializeField] private GemTypeSO[] _gemTypes;
 
     private Gem[] _gems;
+    [SerializeField] private GridSlot[] _slots;
+    public GridSlot[] Slots => _slots;
 
     private Gem _currentGem = null;
 
-    private readonly WaitForEndOfFrame _waitForEndOfFrame = new WaitForEndOfFrame();
-    public static EventSystem CurrentEventSystem { get; private set; }
+    private bool IsChangeHappening = false;
+    private GemChangePair _currentChange;
 
     private void Awake()
     {
@@ -42,10 +41,7 @@ public class GridManager : MonoBehaviour
         {
             var newGem = Instantiate(_gemPrefab).GetComponent<Gem>();
 
-            var initialPostion = _slots[i].transform.position + (Vector3.up * _cellSize * 8f);
-            var gemType = _gemTypes[Random.Range(0, _gemTypes.Length)];            
-
-            newGem.Setup(this, initialPostion, gemType, _slots[i]);
+            SpawnGem(newGem, _slots[i]);
 
             _gems[i] = newGem;
         }
@@ -53,7 +49,6 @@ public class GridManager : MonoBehaviour
 
     private void OnEnable()
     {
-        CurrentEventSystem = EventSystem.current;
         for (int i = 0; i < _gems.Length; i++)
         {
             _gems[i].transform.position = _slots[i].transform.position + (Vector3.up * _cellSize * 8f);
@@ -61,12 +56,30 @@ public class GridManager : MonoBehaviour
         }
     }
 
-    public GridSlot GetGridSlot(int x, int y)
+    private void Update()
     {
-        var aux = x + (y * 8);
-        if (aux <= _slots.Length)
+        if (!IsChangeHappening) return;
+
+        if (_currentChange.BothDone)
         {
-            return _slots[aux];
+            FinishChangeProcess();
+        }
+    }
+
+    private void SpawnGem(Gem gemToSpawn, GridSlot initialSlot)
+    {
+        var initialPostion = initialSlot.transform.position + (Vector3.up * _cellSize * 8f);
+        var gemType = _gemTypes[Random.Range(0, _gemTypes.Length)];
+
+        gemToSpawn.Setup(this, initialPostion, gemType, initialSlot);
+    }
+
+    private Gem GetGemInSlot(int x, int y)
+    {
+        var indexInList= x + (y * 8);
+        if (indexInList <= _slots.Length)
+        {
+            return _slots[indexInList].CurrentGem;
         }
         else
         {
@@ -76,9 +89,9 @@ public class GridManager : MonoBehaviour
 
     public void GemSelected(Gem nextGem)
     {
-        if (GemsCanBeChanged(_currentGem, nextGem))
+        if (!IsChangeHappening && GemsCanBeChanged(_currentGem, nextGem))
         {
-            ChangeGemPlaces(_currentGem, nextGem);
+            ChangeGems(_currentGem, nextGem);
             _currentGem = null;
         }
         else
@@ -89,7 +102,18 @@ public class GridManager : MonoBehaviour
 
     private bool GemsCanBeChanged(Gem current, Gem other) => current != null && current != other && AreAdjacent(current.Index, other.Index);
 
-    private void ChangeGemPlaces(Gem current, Gem other)
+    public void ChangeGems(Gem current, Gem other)
+    {
+        ChangeGemPostions(current, other);
+
+        current.MarkAsChanging();
+        other.MarkAsChanging();
+
+        IsChangeHappening = true;
+        _currentChange = new GemChangePair(current, other);
+    }
+
+    private void ChangeGemPostions(Gem current, Gem other)
     {
         var currentSlot = _slots[current.Index];
         var otherSlot = _slots[other.Index];
@@ -97,29 +121,146 @@ public class GridManager : MonoBehaviour
         current.GoToSlot(otherSlot);
         other.GoToSlot(currentSlot);
     }
-
-    private IEnumerator AnimateSlotsChange(int from, int to)
-    { 
-        Transform fromTransform = _slots[from].transform;
-        Transform toTransform = _slots[to].transform;
-        Vector3 fromInitialPosition = fromTransform.position;
-        Vector3 toInitialPosition = toTransform.position;
-
-        float transitionIndex = 0f;
-        while (1f - transitionIndex > 0.001f)
-        {
-            fromTransform.position = Vector3.Lerp(fromInitialPosition, toInitialPosition, transitionIndex);
-            toTransform.position = Vector3.Lerp(toInitialPosition, fromInitialPosition, transitionIndex);
-
-            yield return _waitForEndOfFrame;
-
-            transitionIndex += Time.deltaTime * _slotChangeSpeed;
-        }
-
-        fromTransform.position = toInitialPosition;
-        toTransform.position = fromInitialPosition;
+    
+    private void ChangeBack(GemChangePair change)
+    {
+        ChangeGemPostions(change.GemA, change.GemB);
     }
 
+    private void FinishChangeProcess()
+    {
+        IsChangeHappening = false;
+
+        var gemAInSequence = CheckForSequence(_currentChange.GemA, out Gem[] gemsA);
+        var gemBInSequence = CheckForSequence(_currentChange.GemB, out Gem[] gemsB);
+
+        if (gemAInSequence || gemBInSequence)
+        {
+            foreach (var gem in gemsA)
+            {
+                gem.gameObject.SetActive(false);
+            }
+
+            foreach (var gem in gemsB)
+            {
+                gem.gameObject.SetActive(false);
+            }
+
+
+        }
+        else
+        {
+            ChangeBack(_currentChange);
+        }
+    }
+
+    private bool CheckForSequence(Gem gem, out Gem[] sequenceList)
+    {
+        var initialIndex = ToMatrixIndex(gem.Index);
+
+        List<Gem> gemsInsequence = new List<Gem>();
+        gemsInsequence.Add(gem);
+
+        foreach(Gem g in CheckCollums(gem))
+        {
+            gemsInsequence.Add(g);
+        }
+
+        foreach (Gem g in CheckRows(gem))
+        {
+            gemsInsequence.Add(g);
+        }
+
+        Debug.Log(gemsInsequence.Count);
+
+        if (gemsInsequence.Count >= 3)
+        {
+            sequenceList = gemsInsequence.ToArray();
+            return true;
+        }
+        else
+        {
+            sequenceList = new Gem[0];
+            return false;
+        }
+    }
+
+    private Gem[] CheckCollums(Gem gem)
+    {
+        var initialIndex = ToMatrixIndex(gem.Index);
+
+        List<Gem> gemsInsequence = new List<Gem>();
+        int verticalCount = 1;
+
+        for (int y = initialIndex.y + 1; y < HEIGHT; y++)
+        {
+            var nextGem = GetGemInSlot(initialIndex.x, y);
+            if (gem.Type != nextGem.Type)
+                break;
+
+            gemsInsequence.Add(nextGem);
+            verticalCount++;
+        }
+
+        for (int y = initialIndex.y - 1; y >= 0; y--)
+        {
+            var nextGem = GetGemInSlot(initialIndex.x, y);
+            if (gem.Type != nextGem.Type)
+                break;
+
+            gemsInsequence.Add(nextGem);
+            verticalCount++;
+        }
+
+        if (verticalCount >= 3)
+        {
+            return gemsInsequence.ToArray();
+        }
+        else
+        {
+            return new Gem[0];
+        }
+    }
+
+    private Gem[] CheckRows(Gem gem)
+    {
+        var initialIndex = ToMatrixIndex(gem.Index);
+
+        List<Gem> gemsInsequence = new List<Gem>();
+        int horizontalCount = 1;
+
+        for (int x = initialIndex.y + 1; x < HEIGHT; x++)
+        {
+            var nextGem = GetGemInSlot(x, initialIndex.y);
+            if (gem.Type != nextGem.Type)
+                break;
+
+            gemsInsequence.Add(nextGem);
+            horizontalCount++;
+        }
+
+        for (int x = initialIndex.y - 1; x >= 0; x--)
+        {
+            var nextGem = GetGemInSlot(x, initialIndex.y);
+            if (gem.Type != nextGem.Type)
+                break;
+
+            gemsInsequence.Add(nextGem);
+            horizontalCount++;
+        }
+
+        if (horizontalCount >= 3)
+        {
+            return gemsInsequence.ToArray();
+        }
+        else
+        {
+            return new Gem[0];
+        }
+    }
+
+    public Vector2Int ToMatrixIndex(int Listindex) => new Vector2Int(Listindex % WIDTH, Listindex / HEIGHT);
+  
     private bool AreAdjacent(int index, int other)
     {
         Vector2 indexOnArray = new Vector2(index % 8, (index/8));
@@ -137,5 +278,19 @@ public class GridManager : MonoBehaviour
                 _slots[x + (y * 8)].transform.position = this.transform.position + (new Vector3(x, y, 0) * _cellSize);
             }
         }
+    }
+
+    private struct GemChangePair
+    { 
+        public GemChangePair(Gem gemA, Gem gemB)
+        {
+            GemA = gemA;
+            GemB = gemB;
+        }
+
+        public Gem GemA { get; }
+        public Gem GemB { get; }
+
+        public bool BothDone => !GemA.IsChanging && !GemB.IsChanging;
     }
 }

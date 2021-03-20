@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -7,6 +8,7 @@ public class Gem : MonoBehaviour
     [SerializeField] private float _moveSpeed = 1;
     [SerializeField] private SpriteRenderer _spriteRenderer;
 
+
     private GridManager _parentGrid;
 
     private bool _hasTargetPosition = false;
@@ -14,6 +16,8 @@ public class Gem : MonoBehaviour
     private Vector3 velocity = Vector3.zero;
 
     public int Index { get; private set; }
+    public bool IsChanging { get; private set; } = false;
+    public int Type { get;private set; }
 
     public void Setup(GridManager grid, Vector3 initialPosition = default, GemTypeSO gemType = null, GridSlot initialSlot = null)
     {
@@ -46,12 +50,14 @@ public class Gem : MonoBehaviour
         {
             this.transform.position = _targetPosition;
             _hasTargetPosition = false;
+            IsChanging = false;
         }
     }
 
     public void SetGemType(GemTypeSO newType)
     {
         _spriteRenderer.sprite = newType.Sprite;
+        this.Type = newType.Type;
     }
 
     public void GoToSlot(GridSlot slot)
@@ -59,6 +65,12 @@ public class Gem : MonoBehaviour
         _targetPosition = slot.transform.position;
         _hasTargetPosition = true;
         Index = slot.Index;
+        slot.CurrentGem = this;
+    }
+
+    public void MarkAsChanging()
+    {
+        IsChanging = true;
     }
 
     private void OnValidate()

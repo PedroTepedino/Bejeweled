@@ -7,6 +7,8 @@ public class GridSlot : MonoBehaviour
     private GridManager _parentGrid;
     public int Index { get; private set; }
 
+    public Gem CurrentGem = null;
+
     public void Setup(GridManager grid, int index)
     {
         _parentGrid = grid;
@@ -16,8 +18,5 @@ public class GridSlot : MonoBehaviour
     public void SetIndex(int newIndex)
     {
         Index = newIndex;
-    }
-
-
-    
+    } 
 }
