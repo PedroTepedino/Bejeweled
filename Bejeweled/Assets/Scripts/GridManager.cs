@@ -1,9 +1,8 @@
-using System;
 using UnityEngine;
-using UnityEngine.EventSystems;
-using System.Collections;
 using System.Collections.Generic;
+using System.Collections;
 using Random = UnityEngine.Random;
+using System.Linq;
 
 public class GridManager : MonoBehaviour
 {
@@ -20,6 +19,7 @@ public class GridManager : MonoBehaviour
     public GridSlot[] Slots => _slots;
 
     private Gem _currentGem = null;
+    private Queue<Gem> _disabledGems = new Queue<Gem>();
 
     private bool IsChangeHappening = false;
     private GemChangePair _currentChange;
@@ -47,12 +47,62 @@ public class GridManager : MonoBehaviour
         }
     }
 
-    private void OnEnable()
+    private IEnumerator Start()
     {
         for (int i = 0; i < _gems.Length; i++)
         {
             _gems[i].transform.position = _slots[i].transform.position + (Vector3.up * _cellSize * 8f);
             _gems[i].GoToSlot(_slots[i]);
+            yield return null;
+        }
+        Debug.Log("Pass");
+
+        while (_gems[0].IsMoving)
+        {
+            yield return null;
+        }
+
+        Debug.Log("Gems finished moving");
+
+        for(int i = 0; i < _gems.Length; i++)
+        { 
+            yield return null;
+            if (!_gems[i].IsEnabled)
+                continue;
+
+            if (CheckForSequence(_gems[i], out Gem[] gemsInSequence))
+            {
+                foreach(var g in gemsInSequence)
+                {
+                    yield return null;
+                    g.DisableGem();
+                    _disabledGems.Enqueue(g);
+                }
+
+                yield return RefillBoard();
+
+                i = 0;
+            }
+        }
+    }
+
+    private IEnumerator RefillBoard()
+    {
+        ShiftGemsDown();
+
+        foreach (var slot in _slots)
+        {
+            if (slot.CurrentGem == null)
+            {
+                SpawnGem(_disabledGems.Dequeue(), slot);
+            }
+
+            yield return null;
+        }
+
+        while (_gems.ToList().Where(g => g.IsEnabled).Any(g => g.IsMoving))
+        {
+            yield return null;
         }
     }
 
@@ -80,6 +130,19 @@ public class GridManager : MonoBehaviour
         if (indexInList <= _slots.Length)
         {
             return _slots[indexInList].CurrentGem;
+        }
+        else
+        {
+            return null;
+        }
+    }
+
+    private GridSlot GetSlot(int x, int y)
+    {
+        var indexInList = x + (y * 8);
+        if (indexInList <= _slots.Length)
+        {
+            return _slots[indexInList];
         }
         else
         {
@@ -138,19 +201,72 @@ public class GridManager : MonoBehaviour
         {
             foreach (var gem in gemsA)
             {
-                gem.gameObject.SetActive(false);
+                gem.DisableGem();
+                _disabledGems.Enqueue(gem);
             }
 
             foreach (var gem in gemsB)
             {
-                gem.gameObject.SetActive(false);
+                gem.DisableGem();
+                _disabledGems.Enqueue(gem);
             }
 
-
+            StartCoroutine(WhileSequenceExist());
         }
         else
         {
             ChangeBack(_currentChange);
+        }
+    }
+
+    private IEnumerator WhileSequenceExist()
+    {
+        yield return RefillBoard();
+
+        for (int i = 0; i < _gems.Length; i++)
+        {
+            yield return null;
+            if (!_gems[i].IsEnabled)
+                continue;
+
+            if (CheckForSequence(_gems[i], out Gem[] gemsInSequence))
+            {
+                foreach (var g in gemsInSequence)
+                {
+                    yield return null;
+                    g.DisableGem();
+                    _disabledGems.Enqueue(g);
+                }
+
+                yield return RefillBoard();
+
+                i = 0;
+            }
+        }
+    }
+
+    private void ShiftGemsDown()
+    {
+        for (int i = 0; i < _slots.Length; i++)
+        {
+            if (_slots[i].CurrentGem == null)
+            {
+                var index = ToMatrixIndex(_slots[i].Index);
+                for (int y = index.y + 1; y < HEIGHT; y++)
+                {
+                    var gemInSlot = GetGemInSlot(index.x, y);
+                    if (gemInSlot == null)
+                        continue;
+
+                    if (GetGemInSlot(index.x, y).IsEnabled)
+                    {
+                        var slot = GetSlot(index.x, y);
+                        GetGemInSlot(index.x, y).GoToSlot(_slots[i]);
+                        slot.CurrentGem = null;
+                        break;
+                    }
+                }
+            }
         }
     }
 
@@ -170,8 +286,6 @@ public class GridManager : MonoBehaviour
         {
             gemsInsequence.Add(g);
         }
-
-        Debug.Log(gemsInsequence.Count);
 
         if (gemsInsequence.Count >= 3)
         {
@@ -195,9 +309,10 @@ public class GridManager : MonoBehaviour
         for (int y = initialIndex.y + 1; y < HEIGHT; y++)
         {
             var nextGem = GetGemInSlot(initialIndex.x, y);
+
             if (gem.Type != nextGem.Type)
                 break;
-
+            
             gemsInsequence.Add(nextGem);
             verticalCount++;
         }
@@ -205,6 +320,7 @@ public class GridManager : MonoBehaviour
         for (int y = initialIndex.y - 1; y >= 0; y--)
         {
             var nextGem = GetGemInSlot(initialIndex.x, y);
+
             if (gem.Type != nextGem.Type)
                 break;
 
@@ -229,9 +345,10 @@ public class GridManager : MonoBehaviour
         List<Gem> gemsInsequence = new List<Gem>();
         int horizontalCount = 1;
 
-        for (int x = initialIndex.y + 1; x < HEIGHT; x++)
+        for (int x = initialIndex.x + 1; x < HEIGHT; x++)
         {
             var nextGem = GetGemInSlot(x, initialIndex.y);
+
             if (gem.Type != nextGem.Type)
                 break;
 
@@ -239,9 +356,10 @@ public class GridManager : MonoBehaviour
             horizontalCount++;
         }
 
-        for (int x = initialIndex.y - 1; x >= 0; x--)
+        for (int x = initialIndex.x - 1; x >= 0; x--)
         {
             var nextGem = GetGemInSlot(x, initialIndex.y);
+
             if (gem.Type != nextGem.Type)
                 break;
 

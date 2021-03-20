@@ -1,7 +1,5 @@
 using System;
 using UnityEngine;
-using UnityEngine.EventSystems;
-
 
 public class Gem : MonoBehaviour
 {
@@ -17,12 +15,16 @@ public class Gem : MonoBehaviour
 
     public int Index { get; private set; }
     public bool IsChanging { get; private set; } = false;
-    public int Type { get;private set; }
+    public int Type { get; private set; }
+    public GridSlot CurrentSlot { get; private set; } = null;
+    public bool IsMoving => _hasTargetPosition ;
+    public bool IsEnabled => CurrentSlot != null;
 
     public void Setup(GridManager grid, Vector3 initialPosition = default, GemTypeSO gemType = null, GridSlot initialSlot = null)
     {
         _parentGrid = grid;
         this.transform.position = initialPosition;
+        this.gameObject.SetActive(true);
 
         if (gemType != null)
         {
@@ -66,11 +68,19 @@ public class Gem : MonoBehaviour
         _hasTargetPosition = true;
         Index = slot.Index;
         slot.CurrentGem = this;
+        CurrentSlot = slot;
     }
 
     public void MarkAsChanging()
     {
         IsChanging = true;
+    }
+
+    public void DisableGem()
+    {
+        this.gameObject.SetActive(false);
+        CurrentSlot.CurrentGem = null;
+        this.CurrentSlot = null;
     }
 
     private void OnValidate()
