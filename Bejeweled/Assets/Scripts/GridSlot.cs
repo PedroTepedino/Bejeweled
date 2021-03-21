@@ -16,5 +16,5 @@ public class GridSlot : MonoBehaviour
     public void SetIndex(int newIndex)
     {
         Index = newIndex;
-    } 
+    }
 }

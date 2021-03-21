@@ -6,7 +6,6 @@ public class Gem : MonoBehaviour
     [SerializeField] private float _moveSpeed = 1;
     [SerializeField] private SpriteRenderer _spriteRenderer;
 
-
     private GridManager _parentGrid;
 
     private bool _hasTargetPosition = false;
@@ -19,6 +18,10 @@ public class Gem : MonoBehaviour
     public GridSlot CurrentSlot { get; private set; } = null;
     public bool IsMoving => _hasTargetPosition ;
     public bool IsEnabled => CurrentSlot != null;
+
+    private MaterialPropertyBlock _propertyBlock = null;
+    private readonly int _blinkMultiplierID = Shader.PropertyToID("_BlinkColorMultiplier");
+    private readonly int _mainTexID = Shader.PropertyToID("_MainTex");
 
     public void Setup(GridManager grid, Vector3 initialPosition = default, GemTypeSO gemType = null, GridSlot initialSlot = null)
     {
@@ -44,11 +47,16 @@ public class Gem : MonoBehaviour
 
     private void Update()
     {
-        if (!_hasTargetPosition) return;
-        
-        this.transform.position = Vector3.SmoothDamp(this.transform.position, _targetPosition, ref velocity,  Time.deltaTime * _moveSpeed);
+        Move();
+    }
 
-        if (Vector3.Distance(this.transform.position, _targetPosition) < 0.01f )
+    private void Move()
+    {
+        if (!_hasTargetPosition) return;
+
+        this.transform.position = Vector3.SmoothDamp(this.transform.position, _targetPosition, ref velocity, Time.deltaTime * _moveSpeed);
+
+        if (Vector3.Distance(this.transform.position, _targetPosition) < 0.01f)
         {
             this.transform.position = _targetPosition;
             _hasTargetPosition = false;
@@ -78,9 +86,19 @@ public class Gem : MonoBehaviour
 
     public void DisableGem()
     {
+        this.SetBlinkState(false);
         this.gameObject.SetActive(false);
         CurrentSlot.CurrentGem = null;
         this.CurrentSlot = null;
+    }
+
+    public void SetBlinkState(bool isBlinking)
+    {
+        _propertyBlock = new MaterialPropertyBlock();
+        _propertyBlock.SetFloat(_blinkMultiplierID, isBlinking ? 1 : 0);
+        _propertyBlock.SetTexture(_mainTexID, _spriteRenderer.sprite.texture);
+
+        _spriteRenderer.SetPropertyBlock(_propertyBlock);
     }
 
     private void OnValidate()

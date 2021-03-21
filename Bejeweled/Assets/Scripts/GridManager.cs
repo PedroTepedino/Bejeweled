@@ -64,26 +64,98 @@ public class GridManager : MonoBehaviour
 
         Debug.Log("Gems finished moving");
 
-        for(int i = 0; i < _gems.Length; i++)
-        { 
-            yield return null;
-            if (!_gems[i].IsEnabled)
-                continue;
+        //for(int i = 0; i < _gems.Length; i++)
+        //{ 
+        //    yield return null;
+        //    if (!_gems[i].IsEnabled)
+        //        continue;
 
-            if (CheckForSequence(_gems[i], out Gem[] gemsInSequence))
+        //    if (CheckForSequence(_gems[i], out Gem[] gemsInSequence))
+        //    {
+        //        foreach(var g in gemsInSequence)
+        //        {
+        //            yield return null;
+        //            g.DisableGem();
+        //            _disabledGems.Enqueue(g);
+        //        }
+
+        //        yield return RefillBoard();
+
+        //        i = 0;
+        //    }
+        //}        //for(int i = 0; i < _gems.Length; i++)
+        //{ 
+        //    yield return null;
+        //    if (!_gems[i].IsEnabled)
+        //        continue;
+
+        //    if (CheckForSequence(_gems[i], out Gem[] gemsInSequence))
+        //    {
+        //        foreach(var g in gemsInSequence)
+        //        {
+        //            yield return null;
+        //            g.DisableGem();
+        //            _disabledGems.Enqueue(g);
+        //        }
+
+        //        yield return RefillBoard();
+
+        //        i = 0;
+        //    }
+        //}
+
+        yield return FindAndRemoveSequences();
+    }
+
+    private IEnumerator FindAndRemoveSequences()
+    {
+        var sequenceFound = false;
+        do
+        {
+            yield return null;
+
+            sequenceFound = FindSequences(out Gem[] gemsToDisapear);
+
+            yield return null;
+
+            if (sequenceFound)
             {
-                foreach(var g in gemsInSequence)
+                foreach (var gem in gemsToDisapear)
                 {
+                    gem.DisableGem();
+                    _disabledGems.Enqueue(gem);
+
                     yield return null;
-                    g.DisableGem();
-                    _disabledGems.Enqueue(g);
+                }
+            }
+
+            yield return RefillBoard();
+
+        } while (sequenceFound);
+    }
+
+    private bool FindSequences(out Gem[] gemsInSequences)
+    {
+        var gemsToDisapear = new List<Gem>();
+        var sequenceFound = false;
+        foreach (var gem in _gems)
+        {
+            var hasSequence = CheckForSequence(gem, out Gem[] gemsInSequence);
+
+            if (hasSequence)
+            {
+                foreach (var g in gemsInSequence.Where(gem => !gemsToDisapear.Contains(gem)))
+                {
+                    gemsToDisapear.Add(g);
                 }
 
-                yield return RefillBoard();
-
-                i = 0;
+                sequenceFound = true;
             }
         }
+
+        gemsInSequences = gemsToDisapear.ToArray();
+
+        return sequenceFound;
     }
 
     private IEnumerator RefillBoard()
@@ -155,12 +227,21 @@ public class GridManager : MonoBehaviour
         if (!IsChangeHappening && GemsCanBeChanged(_currentGem, nextGem))
         {
             ChangeGems(_currentGem, nextGem);
+            _currentGem?.SetBlinkState(false);
             _currentGem = null;
         }
         else
         {
+            _currentGem?.SetBlinkState(false);
             _currentGem = nextGem;
+            _currentGem?.SetBlinkState(true);
         }
+    }
+
+    public void DeselectGems()
+    {
+        _currentGem?.SetBlinkState(false);
+        _currentGem = null;
     }
 
     private bool GemsCanBeChanged(Gem current, Gem other) => current != null && current != other && AreAdjacent(current.Index, other.Index);
@@ -199,19 +280,7 @@ public class GridManager : MonoBehaviour
 
         if (gemAInSequence || gemBInSequence)
         {
-            foreach (var gem in gemsA)
-            {
-                gem.DisableGem();
-                _disabledGems.Enqueue(gem);
-            }
-
-            foreach (var gem in gemsB)
-            {
-                gem.DisableGem();
-                _disabledGems.Enqueue(gem);
-            }
-
-            StartCoroutine(WhileSequenceExist());
+            StartCoroutine(FindAndRemoveSequences());
         }
         else
         {
