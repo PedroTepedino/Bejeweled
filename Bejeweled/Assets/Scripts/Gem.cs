@@ -10,7 +10,8 @@ public class Gem : MonoBehaviour
 
     private bool _hasTargetPosition = false;
     private Vector3 _targetPosition;
-    private Vector3 velocity = Vector3.zero;
+    private Vector3 _velocity = Vector3.zero;
+    private bool _watchingMouseMovement = false;
 
     public int Index { get; private set; }
     public bool IsChanging { get; private set; } = false;
@@ -42,19 +43,69 @@ public class Gem : MonoBehaviour
 
     private void OnMouseDown()
     {
+        _watchingMouseMovement = true;
+    }
+
+    private void OnMouseUp()
+    {
         _parentGrid.GemSelected(this);
+        _watchingMouseMovement = false;
     }
 
     private void Update()
     {
+        TrackMouse();
+
         Move();
+    }
+
+    private void TrackMouse()
+    {
+        if (!_watchingMouseMovement) return;
+
+        var currentMousePosition = GridManager.MainCam.ScreenToWorldPoint(Input.mousePosition);
+        var direction = (Vector2)currentMousePosition - (Vector2)this.transform.position;
+        //if (Vector2.Distance(this.transform.position, currentMousePosition) >= _parentGrid.CellSize * 0.65f)
+        if(direction.magnitude >= _parentGrid.CellSize * 0.65f)
+        {
+            _watchingMouseMovement = false;
+            _parentGrid.SelectNeighbourGem(this, GetMouseDirection(direction.normalized));
+        }
+    }
+
+    private Vector2Int GetMouseDirection(Vector2 dir)
+    {
+        var rightDot = Vector2.Dot(dir, Vector2.right);
+        if (Mathf.Abs(rightDot) > 0.5f)
+        {
+            if (rightDot > 0 )
+            {
+                return Vector2Int.right;
+            }
+            else
+            {
+                return Vector2Int.left;
+            }
+        }
+        else
+        {
+            var upDot = Vector2.Dot(dir, Vector2.up);
+            if (upDot > 0)
+            {
+                return Vector2Int.up;
+            }
+            else
+            {
+                return Vector2Int.down;
+            }
+        }
     }
 
     private void Move()
     {
         if (!_hasTargetPosition) return;
 
-        this.transform.position = Vector3.SmoothDamp(this.transform.position, _targetPosition, ref velocity, Time.deltaTime * _moveSpeed);
+        this.transform.position = Vector3.SmoothDamp(this.transform.position, _targetPosition, ref _velocity, Time.deltaTime * _moveSpeed);
 
         if (Vector3.Distance(this.transform.position, _targetPosition) < 0.01f)
         {

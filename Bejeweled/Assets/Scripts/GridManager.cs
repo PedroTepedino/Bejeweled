@@ -10,6 +10,9 @@ public class GridManager : MonoBehaviour
     public const int HEIGHT = 8;
 
     [SerializeField] private float _cellSize = 1f;
+    public float CellSize => _cellSize;
+
+    public static Camera MainCam;
 
     [SerializeField] private GameObject _gemPrefab;
     [SerializeField] private GemTypeSO[] _gemTypes;
@@ -49,60 +52,19 @@ public class GridManager : MonoBehaviour
 
     private IEnumerator Start()
     {
+        MainCam = Camera.main;
+
         for (int i = 0; i < _gems.Length; i++)
         {
             _gems[i].transform.position = _slots[i].transform.position + (Vector3.up * _cellSize * 8f);
             _gems[i].GoToSlot(_slots[i]);
             yield return null;
         }
-        Debug.Log("Pass");
 
         while (_gems[0].IsMoving)
         {
             yield return null;
         }
-
-        Debug.Log("Gems finished moving");
-
-        //for(int i = 0; i < _gems.Length; i++)
-        //{ 
-        //    yield return null;
-        //    if (!_gems[i].IsEnabled)
-        //        continue;
-
-        //    if (CheckForSequence(_gems[i], out Gem[] gemsInSequence))
-        //    {
-        //        foreach(var g in gemsInSequence)
-        //        {
-        //            yield return null;
-        //            g.DisableGem();
-        //            _disabledGems.Enqueue(g);
-        //        }
-
-        //        yield return RefillBoard();
-
-        //        i = 0;
-        //    }
-        //}        //for(int i = 0; i < _gems.Length; i++)
-        //{ 
-        //    yield return null;
-        //    if (!_gems[i].IsEnabled)
-        //        continue;
-
-        //    if (CheckForSequence(_gems[i], out Gem[] gemsInSequence))
-        //    {
-        //        foreach(var g in gemsInSequence)
-        //        {
-        //            yield return null;
-        //            g.DisableGem();
-        //            _disabledGems.Enqueue(g);
-        //        }
-
-        //        yield return RefillBoard();
-
-        //        i = 0;
-        //    }
-        //}
 
         yield return FindAndRemoveSequences();
     }
@@ -224,6 +186,8 @@ public class GridManager : MonoBehaviour
 
     public void GemSelected(Gem nextGem)
     {
+        if (_gems.Any(gem => gem.IsMoving)) return; 
+
         if (!IsChangeHappening && GemsCanBeChanged(_currentGem, nextGem))
         {
             ChangeGems(_currentGem, nextGem);
@@ -236,6 +200,16 @@ public class GridManager : MonoBehaviour
             _currentGem = nextGem;
             _currentGem?.SetBlinkState(true);
         }
+    }
+
+    public void SelectNeighbourGem(Gem gem, Vector2Int neighbourDirection)
+    {
+        var index = ToMatrixIndex(gem.Index) + neighbourDirection;
+
+        DeselectGems();
+
+        GemSelected(gem);
+        GemSelected(GetGemInSlot(index.x, index.y));
     }
 
     public void DeselectGems()
