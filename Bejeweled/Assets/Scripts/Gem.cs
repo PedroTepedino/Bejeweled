@@ -65,7 +65,7 @@ public class Gem : MonoBehaviour
 
         var currentMousePosition = GridManager.MainCam.ScreenToWorldPoint(Input.mousePosition);
         var direction = (Vector2)currentMousePosition - (Vector2)this.transform.position;
-        //if (Vector2.Distance(this.transform.position, currentMousePosition) >= _parentGrid.CellSize * 0.65f)
+        
         if(direction.magnitude >= _parentGrid.CellSize * 0.65f)
         {
             _watchingMouseMovement = false;
@@ -137,6 +137,7 @@ public class Gem : MonoBehaviour
 
     public void DisableGem()
     {
+        _parentGrid.SpawnExplosionEffect(this);
         this.SetBlinkState(false);
         this.gameObject.SetActive(false);
         CurrentSlot.CurrentGem = null;

@@ -16,10 +16,14 @@ public class GridManager : MonoBehaviour
 
     [SerializeField] private GameObject _gemPrefab;
     [SerializeField] private GemTypeSO[] _gemTypes;
+    private Dictionary<int, GemTypeSO> _gemsTypesDict;
 
     private Gem[] _gems;
     [SerializeField] private GridSlot[] _slots;
     public GridSlot[] Slots => _slots;
+
+    [SerializeField] private EffectsPoolling _effectsPooling;
+    public EffectsPoolling EffectsPool => _effectsPooling;
 
     private Gem _currentGem = null;
     private Queue<Gem> _disabledGems = new Queue<Gem>();
@@ -35,6 +39,13 @@ public class GridManager : MonoBehaviour
         }
 
         CreateGems();
+
+        _gemsTypesDict = new Dictionary<int, GemTypeSO>();
+
+        foreach(var gemType in _gemTypes)
+        {
+            _gemsTypesDict.Add(gemType.Type, gemType);
+        }
     }
 
     private void CreateGems()
@@ -262,32 +273,6 @@ public class GridManager : MonoBehaviour
         }
     }
 
-    private IEnumerator WhileSequenceExist()
-    {
-        yield return RefillBoard();
-
-        for (int i = 0; i < _gems.Length; i++)
-        {
-            yield return null;
-            if (!_gems[i].IsEnabled)
-                continue;
-
-            if (CheckForSequence(_gems[i], out Gem[] gemsInSequence))
-            {
-                foreach (var g in gemsInSequence)
-                {
-                    yield return null;
-                    g.DisableGem();
-                    _disabledGems.Enqueue(g);
-                }
-
-                yield return RefillBoard();
-
-                i = 0;
-            }
-        }
-    }
-
     private void ShiftGemsDown()
     {
         for (int i = 0; i < _slots.Length; i++)
@@ -430,6 +415,11 @@ public class GridManager : MonoBehaviour
         return Mathf.Abs(1f - (indexOnArray - otherOnArray).magnitude) < 0.001f;
     }
 
+    public void SpawnExplosionEffect(Gem gem)
+    {
+        _effectsPooling.SpawnObj(_gemsTypesDict[gem.Type], gem.transform.position);
+    }
+
     private void OnValidate()
     {
         for (int y = 0; y < HEIGHT; y++)
@@ -438,6 +428,11 @@ public class GridManager : MonoBehaviour
             {
                 _slots[x + (y * 8)].transform.position = this.transform.position + (new Vector3(x, y, 0) * _cellSize);
             }
+        }
+
+        if (_effectsPooling == null)
+        {
+            _effectsPooling = FindObjectOfType<EffectsPoolling>();
         }
     }
 
