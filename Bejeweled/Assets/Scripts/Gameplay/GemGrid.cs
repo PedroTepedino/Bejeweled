@@ -11,7 +11,7 @@ public class GemGrid
     private readonly int _height;
     private readonly float _cellSize;
 
-    private Gem[] _gems; 
+    private Gem[] _gems;
     private GridSlot[] _slots;
 
     private Queue<Gem> _disabledGems;
@@ -55,26 +55,26 @@ public class GemGrid
         }
     }
 
-    public IEnumerator MoveAllGemsToCurrentSlots()
+    public void MoveAllGemsToCurrentSlots()
     {
         for (int i = 0; i < _gems.Length; i++)
         {
-            _gems[i].transform.position = _slots[i].transform.position + (Vector3.up * _cellSize * 8f);
+            var position = _slots[i].transform.position;
+            position.y = _gridManager.GemSpawnPosition.position.y;
+            _gems[i].transform.position = position;
             _gems[i].GoToSlot(_slots[i]);
-            yield return null;
         }
     }
 
-    public Gem GetGemInSlot(Vector2Int index) => GetGemInSlot(index.x, index.y);
+    public Gem GetGemInSlot(Vector2Int index) => GetGem(index.x, index.y);
     
-    public Gem GetGemInSlot(int x, int y)
+    public Gem GetGem(int x, int y)
     {
         if (x < 0 || x >= _width || y < 0 || y >= _height) return null;
 
         var indexInList = x + (y * 8);
         if (indexInList < _slots.Length && indexInList >= 0)
         {
-            Debug.Log(indexInList);
             return _slots[indexInList].CurrentGem;
         }
         else
@@ -158,7 +158,7 @@ public class GemGrid
 
         for (int y = initialIndex.y + 1; y < _height; y++)
         {
-            var nextGem = GetGemInSlot(initialIndex.x, y);
+            var nextGem = GetGem(initialIndex.x, y);
 
             if (gem.Type != nextGem.Type)
                 break;
@@ -169,7 +169,7 @@ public class GemGrid
 
         for (int y = initialIndex.y - 1; y >= 0; y--)
         {
-            var nextGem = GetGemInSlot(initialIndex.x, y);
+            var nextGem = GetGem(initialIndex.x, y);
 
             if (gem.Type != nextGem.Type)
                 break;
@@ -197,7 +197,7 @@ public class GemGrid
 
         for (int x = initialIndex.x + 1; x < _height; x++)
         {
-            var nextGem = GetGemInSlot(x, initialIndex.y);
+            var nextGem = GetGem(x, initialIndex.y);
 
             if (gem.Type != nextGem.Type)
                 break;
@@ -208,7 +208,7 @@ public class GemGrid
 
         for (int x = initialIndex.x - 1; x >= 0; x--)
         {
-            var nextGem = GetGemInSlot(x, initialIndex.y);
+            var nextGem = GetGem(x, initialIndex.y);
 
             if (gem.Type != nextGem.Type)
                 break;
@@ -236,14 +236,14 @@ public class GemGrid
                 var index = ListToMatrixIndex(_slots[i].ListIndex);
                 for (int y = index.y + 1; y < _height; y++)
                 {
-                    var gemInSlot = GetGemInSlot(index.x, y);
+                    var gemInSlot = GetGem(index.x, y);
                     if (gemInSlot == null)
                         continue;
 
-                    if (GetGemInSlot(index.x, y).IsEnabled)
+                    if (GetGem(index.x, y).IsEnabled)
                     {
                         var slot = GetSlot(index.x, y);
-                        GetGemInSlot(index.x, y).GoToSlot(_slots[i]);
+                        GetGem(index.x, y).GoToSlot(_slots[i]);
                         slot.CurrentGem = null;
                         break;
                     }
@@ -307,6 +307,7 @@ public class GemGrid
         gemsInPossibleSequence = new Gem[0];
         return false;
     }
+
     private static List<Tuple<Gem, Gem>> GetGemPairs(Gem[] neighbourGems)
     {
         List<Tuple<Gem, Gem>> gemPairs = new List<Tuple<Gem, Gem>>();
@@ -329,6 +330,7 @@ public class GemGrid
         }
         return gemPairs;
     }
+    
     private Gem[] GetNeighbourGemsOfTheSameType(Gem gem)
     {
         List<Gem> gemsWithSameType = new List<Gem>();
@@ -340,7 +342,7 @@ public class GemGrid
             {
                 if (x == 0 && y == 0) continue;
 
-                var gemInSlot = GetGemInSlot(index.x + x, index.y + y);
+                var gemInSlot = GetGem(index.x + x, index.y + y);
                 if (gemInSlot != null && gemInSlot.Type == gem.Type)
                 {
                     gemsWithSameType.Add(gemInSlot);
@@ -352,13 +354,12 @@ public class GemGrid
     }
 
     public bool IsAnyGemMoving => _gems.Any(gem => gem.IsMoving);
-
-    
+   
     public IEnumerator FindAndRemoveSequences()
     {
         do
         {
-            yield return FindSequences();
+            yield return FindAllSequences();
 
             yield return null;
 
@@ -378,31 +379,57 @@ public class GemGrid
         } while (_foundSequences);
     }
 
-    private IEnumerator FindSequences()
+    private IEnumerator FindAllSequences()
     {
         var gemsToDisapear = new List<Gem>();
-        var sequenceFound = false;
-        foreach (var gem in _gems)
+
+        _foundSequences = false;
+        
+        // Sinse the grid is Always 8 by 8 I'm gonna do a single loop
+        for(int i = 0; i < 8; i++)
         {
             yield return null;
-            var hasSequence = CheckForSequence(gem, out Gem[] gemsInSequence);
-
-            if (hasSequence)
-            {
-                foreach (var g in gemsInSequence.Where(gem => !gemsToDisapear.Contains(gem)))
-                {
-
-                    yield return null;
-                    gemsToDisapear.Add(g);
-                }
-
-                sequenceFound = true;
-            }
+            CheckRowForSequence(i, ref gemsToDisapear);
+            yield return null;
+            CheckColForSequence(i, ref gemsToDisapear);
         }
 
-        _gemsInSequences = gemsToDisapear.ToArray();
+        if (gemsToDisapear.Count > 2)
+            _foundSequences = true;
 
-        _foundSequences = sequenceFound;
+        _gemsInSequences = gemsToDisapear.ToArray();
+    }
+
+    private void CheckRowForSequence(int rowIndex, ref List<Gem> gemsInSequence)
+    {
+        for(int colIndex = 1; colIndex < _width - 1; colIndex++)
+        {
+            var leftGem = GetGem(rowIndex, colIndex - 1);
+            var gem = GetGem(rowIndex, colIndex);
+            var rightGem = GetGem(rowIndex, colIndex + 1);
+            if (leftGem.Type == gem.Type && rightGem.Type == gem.Type)
+            {
+                if (!gemsInSequence.Contains(gem)) gemsInSequence.Add(gem);
+                if (!gemsInSequence.Contains(leftGem)) gemsInSequence.Add(leftGem);
+                if (!gemsInSequence.Contains(rightGem)) gemsInSequence.Add(rightGem);
+            }
+        }
+    }
+
+    private void CheckColForSequence(int colIndex, ref List<Gem> gemsInSequence)
+    {
+        for (int rowIndex = 1; rowIndex < _height - 1; rowIndex++)
+        {
+            var lowerGem = GetGem(rowIndex - 1, colIndex);
+            var gem = GetGem(rowIndex, colIndex);
+            var upperGem = GetGem(rowIndex + 1, colIndex);
+            if (lowerGem.Type == gem.Type && upperGem.Type == gem.Type)
+            {
+                if (!gemsInSequence.Contains(gem)) gemsInSequence.Add(gem);
+                if (!gemsInSequence.Contains(lowerGem)) gemsInSequence.Add(lowerGem);
+                if (!gemsInSequence.Contains(upperGem)) gemsInSequence.Add(upperGem);
+            }
+        }
     }
 
     private IEnumerator RefillBoard()
@@ -415,8 +442,6 @@ public class GemGrid
             {
                 _gridManager.SpawnGem(_disabledGems.Dequeue(), slot);
             }
-
-            yield return null;
         }
 
         while (_gems.ToList().Where(g => g.IsEnabled).Any(g => g.IsMoving))

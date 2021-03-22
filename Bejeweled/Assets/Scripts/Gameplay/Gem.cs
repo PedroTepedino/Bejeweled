@@ -4,6 +4,8 @@ using UnityEngine;
 public class Gem : MonoBehaviour
 {
     [SerializeField] private float _moveSpeed = 1;
+    [SerializeField] private float _timeToReachPosition = 1f;
+    private float _timer = 0f;
     [SerializeField] private SpriteRenderer _spriteRenderer;
 
     private GridManager _gridManager;
@@ -104,11 +106,20 @@ public class Gem : MonoBehaviour
 
     private void Move()
     {
-        if (!_hasTargetPosition) return;
+        if (!_hasTargetPosition) 
+        {
+            _timer = 0f;
+            return; 
+        }
 
-        this.transform.position = Vector3.SmoothDamp(this.transform.position, _targetPosition, ref _velocity, Time.deltaTime * _moveSpeed);
+        _timer += Time.deltaTime;
+        var timePercentage = _timer / _timeToReachPosition;
 
-        if (Vector3.Distance(this.transform.position, _targetPosition) < 0.01f)
+        //this.transform.position = Vector3.SmoothDamp(this.transform.position, _targetPosition, ref _velocity,  _moveSpeed);
+
+        this.transform.position = Vector3.Lerp(this.transform.position, _targetPosition, timePercentage);
+
+        if (Vector3.Distance(this.transform.position, _targetPosition) < 0.01f || timePercentage > 1f)
         {
             this.transform.position = _targetPosition;
             _hasTargetPosition = false;

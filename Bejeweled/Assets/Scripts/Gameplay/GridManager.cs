@@ -12,6 +12,7 @@ public class GridManager : MonoBehaviour
     [SerializeField] private float _cellSize = 1f;
     public float CellSize => _cellSize;
 
+
     public static Camera MainCam;
 
     [SerializeField] private GameObject _gemPrefab;
@@ -21,6 +22,9 @@ public class GridManager : MonoBehaviour
     [SerializeField] private GridSlot[] _slots;
 
     [SerializeField] private EffectsPoolling _effectsPooling;
+
+    [SerializeField] private Transform _gemSpawnPosition;
+    public Transform GemSpawnPosition => _gemSpawnPosition;
 
     private Gem _currentGem = null;
 
@@ -51,7 +55,7 @@ public class GridManager : MonoBehaviour
     {
         MainCam = Camera.main;
 
-        yield return _grid.MoveAllGemsToCurrentSlots();
+        _grid.MoveAllGemsToCurrentSlots();
 
         while (_grid.IsAnyGemMoving)
         {
@@ -104,7 +108,8 @@ public class GridManager : MonoBehaviour
 
     public void SpawnGem(Gem gemToSpawn, GridSlot initialSlot)
     {
-        var initialPostion = initialSlot.transform.position + (Vector3.up * _cellSize * 8f);
+        Vector3 initialPostion = initialSlot.transform.position ;
+        initialPostion.y = _gemSpawnPosition.position.y;
         var gemType = _gemTypes[Random.Range(0, _gemTypes.Length)];
 
         gemToSpawn.Setup(this, initialPostion, gemType, initialSlot);
@@ -134,7 +139,7 @@ public class GridManager : MonoBehaviour
         DeselectGems();
 
         GemSelected(gem);
-        GemSelected(_grid.GetGemInSlot(index.x, index.y));
+        GemSelected(_grid.GetGem(index.x, index.y));
     }
 
     public void DeselectGems()

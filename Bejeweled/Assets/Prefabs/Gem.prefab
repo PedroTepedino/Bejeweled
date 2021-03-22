@@ -46,6 +46,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _moveSpeed: 20
+  _timeToReachPosition: 0.5
   _spriteRenderer: {fileID: 4049423973635836811}
 --- !u!212 &4049423973635836811
 SpriteRenderer:
@@ -95,7 +96,7 @@ SpriteRenderer:
   m_Size: {x: 1, y: 1}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
-  m_WasSpriteAssigned: 1
+  m_WasSpriteAssigned: 0
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!61 &817460537273169694
