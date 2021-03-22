@@ -2,19 +2,16 @@
 
 public class GridSlot : MonoBehaviour
 {
-    private GridManager _parentGrid;
-    public int Index { get; private set; }
+    private GemGrid _parentGrid;
+    public int ListIndex { get; private set; }
 
     public Gem CurrentGem = null;
 
-    public void Setup(GridManager grid, int index)
+    public void Setup(GemGrid grid, int index)
     {
         _parentGrid = grid;
-        SetIndex(index);
+        ListIndex = index;
     }
 
-    public void SetIndex(int newIndex)
-    {
-        Index = newIndex;
-    }
+    public Vector2Int MatrixIndex => _parentGrid.ListToMatrixIndex(ListIndex);
 }

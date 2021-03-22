@@ -6,7 +6,7 @@ public class Gem : MonoBehaviour
     [SerializeField] private float _moveSpeed = 1;
     [SerializeField] private SpriteRenderer _spriteRenderer;
 
-    private GridManager _parentGrid;
+    private GridManager _gridManager;
 
     private bool _hasTargetPosition = false;
     private Vector3 _targetPosition;
@@ -14,7 +14,7 @@ public class Gem : MonoBehaviour
     private bool _watchingMouseMovement = false;
 
     public int ListIndex { get; private set; }
-    public Vector2Int Index { get; private set; }
+    public Vector2Int MatrixIndex { get; private set; }
     public bool IsChanging { get; private set; } = false;
     public int Type { get; private set; }
     public GridSlot CurrentSlot { get; private set; } = null;
@@ -27,7 +27,7 @@ public class Gem : MonoBehaviour
 
     public void Setup(GridManager grid, Vector3 initialPosition = default, GemTypeSO gemType = null, GridSlot initialSlot = null)
     {
-        _parentGrid = grid;
+        _gridManager = grid;
         this.transform.position = initialPosition;
         this.gameObject.SetActive(true);
 
@@ -49,7 +49,7 @@ public class Gem : MonoBehaviour
 
     private void OnMouseUp()
     {
-        _parentGrid.GemSelected(this);
+        _gridManager.GemSelected(this);
         _watchingMouseMovement = false;
     }
 
@@ -67,10 +67,10 @@ public class Gem : MonoBehaviour
         var currentMousePosition = GridManager.MainCam.ScreenToWorldPoint(Input.mousePosition);
         var direction = (Vector2)currentMousePosition - (Vector2)this.transform.position;
         
-        if(direction.magnitude >= _parentGrid.CellSize * 0.65f)
+        if(direction.magnitude >= _gridManager.CellSize * 0.65f)
         {
             _watchingMouseMovement = false;
-            _parentGrid.SelectNeighbourGem(this, GetMouseDirection(direction.normalized));
+            _gridManager.SelectNeighbourGem(this, GetMouseDirection(direction.normalized));
         }
     }
 
@@ -126,8 +126,8 @@ public class Gem : MonoBehaviour
     {
         _targetPosition = slot.transform.position;
         _hasTargetPosition = true;
-        ListIndex = slot.Index;
-        Index = _parentGrid.ListToMatrixIndex(slot.Index);
+        ListIndex = slot.ListIndex;
+        MatrixIndex = slot.MatrixIndex;
         slot.CurrentGem = this;
         CurrentSlot = slot;
     }
@@ -139,7 +139,7 @@ public class Gem : MonoBehaviour
 
     public void DisableGem()
     {
-        _parentGrid.SpawnExplosionEffect(this);
+        _gridManager.SpawnExplosionEffect(this);
         this.SetBlinkState(false);
         this.gameObject.SetActive(false);
         CurrentSlot.CurrentGem = null;
