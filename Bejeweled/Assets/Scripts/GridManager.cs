@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections;
 using Random = UnityEngine.Random;
 using System.Linq;
+using System;
 
 public class GridManager : MonoBehaviour
 {
@@ -30,6 +31,12 @@ public class GridManager : MonoBehaviour
 
     private bool IsChangeHappening = false;
     private GemChangePair _currentChange;
+
+    private Gem[] _possibleSequence;
+    private float _inactivityTimer = 0f;
+    [SerializeField] private float _timeInectiveBeforeHint = 1f;
+
+    public event Action<Gem> OnCurrentGemChanged;
 
     private void Awake()
     {
@@ -153,6 +160,34 @@ public class GridManager : MonoBehaviour
 
     private void Update()
     {
+        if (_gems.Any(g => g.IsMoving))
+        {
+            if (_possibleSequence != null)
+            {
+                for (int i = 0; i < _possibleSequence.Length; i++)
+                {
+                    _possibleSequence[i].SetBlinkState(false);
+                }
+            }
+
+            _possibleSequence = null;
+            _inactivityTimer = 0;
+        }
+        else
+        {
+            _inactivityTimer += Time.deltaTime;
+        }
+
+        if (_inactivityTimer > _timeInectiveBeforeHint && _possibleSequence == null)
+        {
+            bool sequenceFound = FindPossibleSequence(out _possibleSequence); 
+
+            if (sequenceFound )
+            {
+                Debug.LogWarning("Found Hint");
+            }
+        }
+
         if (!IsChangeHappening) return;
 
         if (_currentChange.BothDone)
@@ -171,9 +206,12 @@ public class GridManager : MonoBehaviour
 
     private Gem GetGemInSlot(int x, int y)
     {
+        if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT) return null;
+
         var indexInList= x + (y * 8);
-        if (indexInList <= _slots.Length)
+        if (indexInList < _slots.Length && indexInList >= 0 )
         {
+            Debug.Log(indexInList);
             return _slots[indexInList].CurrentGem;
         }
         else
@@ -202,20 +240,19 @@ public class GridManager : MonoBehaviour
         if (!IsChangeHappening && GemsCanBeChanged(_currentGem, nextGem))
         {
             ChangeGems(_currentGem, nextGem);
-            _currentGem?.SetBlinkState(false);
             _currentGem = null;
         }
         else
         {
-            _currentGem?.SetBlinkState(false);
             _currentGem = nextGem;
-            _currentGem?.SetBlinkState(true);
         }
+
+        OnCurrentGemChanged?.Invoke(_currentGem);
     }
 
     public void SelectNeighbourGem(Gem gem, Vector2Int neighbourDirection)
     {
-        var index = ToMatrixIndex(gem.Index) + neighbourDirection;
+        var index = gem.Index + neighbourDirection;
 
         DeselectGems();
 
@@ -225,11 +262,11 @@ public class GridManager : MonoBehaviour
 
     public void DeselectGems()
     {
-        _currentGem?.SetBlinkState(false);
         _currentGem = null;
+        OnCurrentGemChanged?.Invoke(_currentGem);
     }
 
-    private bool GemsCanBeChanged(Gem current, Gem other) => current != null && current != other && AreAdjacent(current.Index, other.Index);
+    private bool GemsCanBeChanged(Gem current, Gem other) => current != null && current != other && AreAdjacent(current.ListIndex, other.ListIndex);
 
     public void ChangeGems(Gem current, Gem other)
     {
@@ -244,8 +281,8 @@ public class GridManager : MonoBehaviour
 
     private void ChangeGemPostions(Gem current, Gem other)
     {
-        var currentSlot = _slots[current.Index];
-        var otherSlot = _slots[other.Index];
+        var currentSlot = _slots[current.ListIndex];
+        var otherSlot = _slots[other.ListIndex];
 
         current.GoToSlot(otherSlot);
         other.GoToSlot(currentSlot);
@@ -279,7 +316,7 @@ public class GridManager : MonoBehaviour
         {
             if (_slots[i].CurrentGem == null)
             {
-                var index = ToMatrixIndex(_slots[i].Index);
+                var index = ListToMatrixIndex(_slots[i].Index);
                 for (int y = index.y + 1; y < HEIGHT; y++)
                 {
                     var gemInSlot = GetGemInSlot(index.x, y);
@@ -300,8 +337,6 @@ public class GridManager : MonoBehaviour
 
     private bool CheckForSequence(Gem gem, out Gem[] sequenceList)
     {
-        var initialIndex = ToMatrixIndex(gem.Index);
-
         List<Gem> gemsInsequence = new List<Gem>();
         gemsInsequence.Add(gem);
 
@@ -329,7 +364,7 @@ public class GridManager : MonoBehaviour
 
     private Gem[] CheckCollums(Gem gem)
     {
-        var initialIndex = ToMatrixIndex(gem.Index);
+        var initialIndex = gem.Index;
 
         List<Gem> gemsInsequence = new List<Gem>();
         int verticalCount = 1;
@@ -368,7 +403,7 @@ public class GridManager : MonoBehaviour
 
     private Gem[] CheckRows(Gem gem)
     {
-        var initialIndex = ToMatrixIndex(gem.Index);
+        var initialIndex = gem.Index;
 
         List<Gem> gemsInsequence = new List<Gem>();
         int horizontalCount = 1;
@@ -405,7 +440,134 @@ public class GridManager : MonoBehaviour
         }
     }
 
-    public Vector2Int ToMatrixIndex(int Listindex) => new Vector2Int(Listindex % WIDTH, Listindex / HEIGHT);
+    private bool FindPossibleSequence(out Gem[] gemsInPossibleSequence)
+    {
+        foreach (var centerGem in _gems)
+        {
+            var neighbourGems = GetNeighbourGemsOfTheSameType(centerGem); // this includes the current Gem
+
+            if (neighbourGems.Length > 1)
+            {
+                List<Tuple<Gem, Gem>> gemPairs = new List<Tuple<Gem, Gem>>();
+                for (int i = 0; i < neighbourGems.Length; i++)
+                {
+                    for(int j = i + 1; j < neighbourGems.Length; j++)
+                    {
+                        if (neighbourGems[i].Index.x == neighbourGems[j].Index.x || neighbourGems[i].Index.y == neighbourGems[j].Index.y)
+                        {
+                            if (neighbourGems[i].Index.x > neighbourGems[j].Index.x || neighbourGems[i].Index.y > neighbourGems[j].Index.y)
+                            {
+                                gemPairs.Add(new Tuple<Gem, Gem>(neighbourGems[i], neighbourGems[j]));
+                            }
+                            else
+                            {
+                                gemPairs.Add(new Tuple<Gem, Gem>(neighbourGems[j], neighbourGems[i]));
+                            }
+                        }
+                    }
+                }
+
+                foreach(var pair in gemPairs)
+                {
+                    foreach(var otherGem in neighbourGems.Where(g => g != pair.Item1 && g != pair.Item2))
+                    {
+                        if (otherGem.Index.x != pair.Item1.Index.x &&
+                            otherGem.Index.y != pair.Item1.Index.y &&
+                            otherGem.Index.x != pair.Item2.Index.x &&
+                            otherGem.Index.y != pair.Item2.Index.y)
+                        {
+                            otherGem.SetBlinkState(true);
+                            pair.Item1.SetBlinkState(true);
+                            pair.Item2.SetBlinkState(true);
+                            gemsInPossibleSequence = new Gem[] { pair.Item1, pair.Item2, otherGem};
+                            return true;
+                        }
+                    }
+
+                    if ((pair.Item1.Index - pair.Item2.Index).magnitude == 1)
+                    {
+                        if (pair.Item1.Index.y == pair.Item2.Index.y)
+                        {
+                            var otherGem = GetGemInSlot(pair.Item1.Index.x + 2, pair.Item1.Index.y);
+
+                            if (otherGem != null && otherGem.Type == pair.Item1.Type)
+                            {
+                                otherGem.SetBlinkState(true);
+                                pair.Item1.SetBlinkState(true);
+                                pair.Item2.SetBlinkState(true);
+                                gemsInPossibleSequence = new Gem[] { pair.Item1, pair.Item2, otherGem };
+                                return true;
+                            }
+                            else
+                            {
+                                otherGem = GetGemInSlot(pair.Item2.Index.x - 2, pair.Item1.Index.y);
+                                if (otherGem != null && otherGem.Type == pair.Item1.Type)
+                                {
+                                    otherGem.SetBlinkState(true);
+                                    pair.Item1.SetBlinkState(true);
+                                    pair.Item2.SetBlinkState(true);
+                                    gemsInPossibleSequence = new Gem[] { pair.Item1, pair.Item2, otherGem };
+                                    return true;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            var otherGem = GetGemInSlot(pair.Item1.Index.x, pair.Item1.Index.y + 2);
+
+                            if (otherGem != null && otherGem.Type == pair.Item1.Type)
+                            {
+                                otherGem.SetBlinkState(true);
+                                pair.Item1.SetBlinkState(true);
+                                pair.Item2.SetBlinkState(true);
+                                gemsInPossibleSequence = new Gem[] { pair.Item1, pair.Item2, otherGem };
+                                return true;
+                            }
+                            else
+                            {
+                                otherGem = GetGemInSlot(pair.Item1.Index.x, pair.Item2.Index.y - 2);
+                                if (otherGem != null && otherGem.Type == pair.Item1.Type)
+                                {
+                                    otherGem.SetBlinkState(true);
+                                    pair.Item1.SetBlinkState(true);
+                                    pair.Item2.SetBlinkState(true);
+                                    gemsInPossibleSequence = new Gem[] { pair.Item1, pair.Item2, otherGem };
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        gemsInPossibleSequence = new Gem[0];
+        return false;
+    }
+
+    private Gem[] GetNeighbourGemsOfTheSameType(Gem gem)
+    {
+        List<Gem> gemsWithSameType = new List<Gem>();
+        gemsWithSameType.Add(gem);
+        var index = gem.Index;
+        for(int x = -1; x <= 1; x++)
+        {
+            for (int y = -1; y <= 1; y++)
+            {
+                if (x == 0 && y == 0) continue;
+
+                var gemInSlot = GetGemInSlot(index.x + x, index.y + y);
+                if (gemInSlot != null && gemInSlot.Type == gem.Type)
+                {
+                    gemsWithSameType.Add(gemInSlot);
+                }
+            }
+        }
+
+        return gemsWithSameType.ToArray();
+    }
+
+    public Vector2Int ListToMatrixIndex(int Listindex) => new Vector2Int(Listindex % WIDTH, Listindex / HEIGHT);
   
     private bool AreAdjacent(int index, int other)
     {

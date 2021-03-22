@@ -13,7 +13,8 @@ public class Gem : MonoBehaviour
     private Vector3 _velocity = Vector3.zero;
     private bool _watchingMouseMovement = false;
 
-    public int Index { get; private set; }
+    public int ListIndex { get; private set; }
+    public Vector2Int Index { get; private set; }
     public bool IsChanging { get; private set; } = false;
     public int Type { get; private set; }
     public GridSlot CurrentSlot { get; private set; } = null;
@@ -125,7 +126,8 @@ public class Gem : MonoBehaviour
     {
         _targetPosition = slot.transform.position;
         _hasTargetPosition = true;
-        Index = slot.Index;
+        ListIndex = slot.Index;
+        Index = _parentGrid.ListToMatrixIndex(slot.Index);
         slot.CurrentGem = this;
         CurrentSlot = slot;
     }
