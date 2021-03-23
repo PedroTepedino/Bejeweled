@@ -3,7 +3,6 @@ using UnityEngine;
 
 public class Gem : MonoBehaviour
 {
-    [SerializeField] private float _moveSpeed = 1;
     [SerializeField] private float _timeToReachPosition = 1f;
     private float _timer = 0f;
     [SerializeField] private SpriteRenderer _spriteRenderer;
@@ -12,7 +11,6 @@ public class Gem : MonoBehaviour
 
     private bool _hasTargetPosition = false;
     private Vector3 _targetPosition;
-    private Vector3 _velocity = Vector3.zero;
     private bool _watchingMouseMovement = false;
 
     public int ListIndex { get; private set; }
@@ -115,8 +113,6 @@ public class Gem : MonoBehaviour
         _timer += Time.deltaTime;
         var timePercentage = _timer / _timeToReachPosition;
 
-        //this.transform.position = Vector3.SmoothDamp(this.transform.position, _targetPosition, ref _velocity,  _moveSpeed);
-
         this.transform.position = Vector3.Lerp(this.transform.position, _targetPosition, timePercentage);
 
         if (Vector3.Distance(this.transform.position, _targetPosition) < 0.01f || timePercentage > 1f)
@@ -137,8 +133,10 @@ public class Gem : MonoBehaviour
     {
         _targetPosition = slot.transform.position;
         _hasTargetPosition = true;
+
         ListIndex = slot.ListIndex;
         MatrixIndex = slot.MatrixIndex;
+        
         slot.CurrentGem = this;
         CurrentSlot = slot;
     }
@@ -151,8 +149,10 @@ public class Gem : MonoBehaviour
     public void DisableGem()
     {
         _gridManager.SpawnExplosionEffect(this);
+
         this.SetBlinkState(false);
         this.gameObject.SetActive(false);
+        
         CurrentSlot.CurrentGem = null;
         this.CurrentSlot = null;
     }
